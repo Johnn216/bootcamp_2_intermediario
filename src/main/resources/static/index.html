@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CEP Finder — Buscador de Endereços do Brasil</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet"/>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    /* ── TOKENS ─────────────────────────────────────────── */
+    :root {
+      --bg:       #08090A;
+      --s1:       #111315;
+      --s2:       #191C1F;
+      --s3:       #222629;
+      --b0:       rgba(255,255,255,0.05);
+      --b1:       rgba(255,255,255,0.09);
+      --b2:       rgba(255,255,255,0.15);
+
+      --teal:     #00C48C;
+      --teal-d:   rgba(0,196,140,0.10);
+      --teal-m:   rgba(0,196,140,0.22);
+      --teal-g:   rgba(0,196,140,0.40);
+      --gold:     #F5A623;
+      --gold-d:   rgba(245,166,35,0.10);
+      --blue:     #3B82F6;
+      --blue-d:   rgba(59,130,246,0.10);
+      --red:      #EF4444;
+      --red-d:    rgba(239,68,68,0.10);
+
+      --t1: #F4F4F5;
+      --t2: #A1A1AA;
+      --t3: #52525B;
+
+      --r-xl: 20px; --r-lg: 16px; --r-md: 12px;
+      --r-sm: 8px;  --r-xs: 6px;  --r-pill: 999px;
+
+      --card-shadow: 0 0 0 1px rgba(255,255,255,0.04), 0 8px 32px rgba(0,0,0,0.45);
+    }
+
+    /* ── RESET ──────────────────────────────────────────── */
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html{font-size:16px;scroll-behavior:smooth}
+    body{
+      font-family:'Plus Jakarta Sans',sans-serif;
+      background:var(--bg);color:var(--t1);
+      min-height:100vh;overflow-x:hidden;
+      -webkit-font-smoothing:antialiased;
+    }
+    button{cursor:pointer;font-family:inherit;border:none;background:none}
+    input{font-family:inherit}
+    a{color:inherit;text-decoration:none}
+
+    /* ── BACKGROUND ─────────────────────────────────────── */
+    .bg-grid{
+      position:fixed;inset:0;z-index:0;pointer-events:none;
+      background-image:radial-gradient(circle,rgba(255,255,255,0.035) 1px,transparent 1px);
+      background-size:32px 32px;
+      mask-image:radial-gradient(ellipse 80% 55% at 50% 0%,black 40%,transparent 100%);
+    }
+    .orb-teal{
+      position:fixed;z-index:0;pointer-events:none;
+      top:-220px;left:50%;transform:translateX(-50%);
+      width:900px;height:550px;
+      background:radial-gradient(ellipse,rgba(0,196,140,0.08) 0%,transparent 65%);
+    }
+    .orb-gold{
+      position:fixed;z-index:0;pointer-events:none;
+      bottom:-180px;right:-80px;
+      width:600px;height:400px;
+      background:radial-gradient(ellipse,rgba(245,166,35,0.06) 0%,transparent 65%);
+    }
+
+    /* ── LAYOUT ─────────────────────────────────────────── */
+    .wrap{position:relative;z-index:1;max-width:1080px;margin:0 auto;padding:0 24px}
+
+    /* ── HEADER ─────────────────────────────────────────── */
+    .hdr{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:28px 0 0;
+    }
+    .brand{display:flex;align-items:center;gap:10px}
+    .brand-ico{
+      width:38px;height:38px;border-radius:11px;
+      background:linear-gradient(135deg,var(--teal) 0%,#009E70 100%);
+      display:flex;align-items:center;justify-content:center;
+      font-size:20px;box-shadow:0 4px 16px rgba(0,196,140,0.28);
+    }
+    .brand-name{
+      font-size:1.125rem;font-weight:800;letter-spacing:-0.025em;
+      background:linear-gradient(90deg,#fff 0%,var(--t2) 100%);
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+    }
+    .hdr-links{display:flex;gap:4px}
+    .hdr-link{
+      display:flex;align-items:center;gap:5px;
+      padding:7px 11px;border-radius:var(--r-md);
+      font-size:0.8125rem;font-weight:500;color:var(--t2);
+      border:1px solid transparent;
+      transition:all .15s;
+    }
+    .hdr-link:hover{color:var(--t1);background:var(--s2);border-color:var(--b1)}
+    @media(max-width:500px){.hdr-links{display:none}}
+
+    /* ── HERO ───────────────────────────────────────────── */
+    .hero{padding:68px 0 52px;text-align:center}
+    .pill{
+      display:inline-flex;align-items:center;gap:7px;
+      padding:5px 14px 5px 10px;border-radius:var(--r-pill);
+      background:var(--teal-d);border:1px solid var(--teal-m);
+      font-size:.75rem;font-weight:600;color:var(--teal);letter-spacing:.03em;
+      margin-bottom:26px;animation:fadeDown .5s ease both;
+    }
+    .pill-dot{
+      width:7px;height:7px;border-radius:50%;
+      background:var(--teal);box-shadow:0 0 8px var(--teal);
+      animation:breathe 2.4s ease-in-out infinite;
+    }
+    .hero-h1{
+      font-size:clamp(2.25rem,5.5vw,4rem);
+      font-weight:800;line-height:1.08;letter-spacing:-0.04em;
+      margin-bottom:18px;animation:fadeUp .5s ease .1s both;
+    }
+    .hero-h1 em{
+      font-style:normal;
+      background:linear-gradient(110deg,var(--teal) 0%,#7FFFD4 40%,var(--gold) 100%);
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+    }
+    .hero-sub{
+      font-size:1rem;color:var(--t2);line-height:1.65;
+      max-width:420px;margin:0 auto 48px;
+      animation:fadeUp .5s ease .2s both;
+    }
+
+    /* ── SEARCH ─────────────────────────────────────────── */
+    .search-wrap{animation:fadeUp .5s ease .3s both}
+    .search-box{
+      display:flex;align-items:center;
+      max-width:540px;margin:0 auto;
+      background:var(--s1);
+      border:1.5px solid var(--b1);border-radius:var(--r-pill);
+      padding:7px 7px 7px 22px;gap:10px;
+      transition:border-color .2s,box-shadow .2s;
+    }
+    .search-box:focus-within{
+      border-color:var(--teal);
+      box-shadow:0 0 0 4px rgba(0,196,140,.10),0 0 40px rgba(0,196,140,.12);
+    }
+    .search-ico{color:var(--t3);display:flex;align-items:center;flex-shrink:0}
+    .search-input{
+      flex:1;min-width:0;background:transparent;border:none;outline:none;
+      font-family:'JetBrains Mono',monospace;
+      font-size:1.25rem;font-weight:600;color:var(--t1);letter-spacing:.06em;
+    }
+    .search-input::placeholder{
+      color:var(--t3);font-weight:400;font-size:1rem;letter-spacing:.03em;
+    }
+    .search-btn{
+      flex-shrink:0;display:flex;align-items:center;gap:8px;
+      padding:13px 26px;border-radius:var(--r-pill);
+      background:linear-gradient(135deg,var(--teal) 0%,#009E70 100%);
+      color:#fff;font-size:.9375rem;font-weight:700;letter-spacing:-.01em;
+      box-shadow:0 2px 12px rgba(0,196,140,.35);
+      transition:transform .15s,box-shadow .15s,opacity .15s;
+    }
+    .search-btn:hover:not(:disabled){transform:scale(1.03);box-shadow:0 4px 20px rgba(0,196,140,.5)}
+    .search-btn:active:not(:disabled){transform:scale(.97)}
+    .search-btn:disabled{opacity:.55;cursor:not-allowed}
+    .spin{
+      display:none;width:17px;height:17px;
+      border:2.5px solid rgba(255,255,255,.25);border-top-color:#fff;
+      border-radius:50%;animation:rotate .7s linear infinite;
+    }
+    .spin.on{display:block}
+    .search-hint{margin-top:13px;font-size:.8rem;color:var(--t3)}
+    .search-hint kbd{
+      display:inline-block;padding:1px 6px;border-radius:5px;
+      background:var(--s2);border:1px solid var(--b1);
+      font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--t2);
+    }
+
+    /* ── GRID ───────────────────────────────────────────── */
+    .grid{
+      display:grid;grid-template-columns:1fr 360px;
+      gap:20px;padding-bottom:80px;
+    }
+    @media(max-width:780px){.grid{grid-template-columns:1fr}}
+
+    /* ── RESULT COLUMN ──────────────────────────────────── */
+    .col-result{display:flex;flex-direction:column;gap:16px}
+
+    /* Empty */
+    .empty{
+      min-height:420px;display:flex;flex-direction:column;
+      align-items:center;justify-content:center;text-align:center;
+      border:1.5px dashed var(--b1);border-radius:var(--r-xl);
+      padding:48px 32px;
+      background:linear-gradient(160deg,rgba(255,255,255,.015) 0%,transparent 100%);
+    }
+    .empty-ico{font-size:3.5rem;margin-bottom:16px;filter:grayscale(.2)}
+    .empty h3{font-size:1.0625rem;font-weight:700;color:var(--t2);margin-bottom:8px;letter-spacing:-.02em}
+    .empty p{font-size:.875rem;color:var(--t3);line-height:1.65}
+
+    /* Result card */
+    .card{
+      background:var(--s1);border-radius:var(--r-xl);
+      box-shadow:var(--card-shadow);overflow:hidden;
+      animation:slideUp .45s cubic-bezier(.16,1,.3,1) both;
+    }
+    .card-head{
+      padding:26px 28px 22px;
+      background:linear-gradient(135deg,rgba(0,196,140,.08) 0%,rgba(245,166,35,.04) 100%);
+      border-bottom:1px solid var(--b0);
+      display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+    }
+    .cep-lbl{font-size:.6875rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);margin-bottom:6px}
+    .cep-val{
+      font-family:'JetBrains Mono',monospace;
+      font-size:2.25rem;font-weight:700;color:var(--teal);line-height:1;letter-spacing:.04em;
+    }
+    .uf-chip{
+      padding:7px 13px;border-radius:9px;
+      background:var(--teal-d);border:1px solid var(--teal-m);
+      font-family:'JetBrains Mono',monospace;
+      font-size:.9375rem;font-weight:700;color:var(--teal);flex-shrink:0;
+    }
+    .card-body{padding:20px 28px 24px;display:flex;flex-direction:column}
+    .frow{
+      display:flex;align-items:flex-start;gap:13px;
+      padding:13px 0;border-bottom:1px solid var(--b0);
+    }
+    .frow:last-child{border-bottom:none}
+    .frow-2{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--b0)}
+    .frow-2 .frow{border-bottom:none}
+    .frow-ico{
+      width:34px;height:34px;border-radius:9px;
+      background:var(--s2);border:1px solid var(--b0);
+      display:flex;align-items:center;justify-content:center;
+      font-size:.9375rem;flex-shrink:0;margin-top:2px;
+    }
+    .frow-field{flex:1}
+    .flabel{font-size:.6875rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:3px}
+    .fval{font-size:.9375rem;font-weight:500;color:var(--t1);line-height:1.4}
+    .fval.nil{color:var(--t3);font-style:italic;font-weight:400;font-size:.875rem}
+    .card-foot{
+      padding:13px 28px;border-top:1px solid var(--b0);
+      background:rgba(255,255,255,.012);
+      display:flex;align-items:center;justify-content:space-between;gap:8px;
+    }
+    .ts{font-size:.75rem;color:var(--t3);display:flex;align-items:center;gap:5px}
+    .copy-btn{
+      display:flex;align-items:center;gap:6px;
+      padding:7px 13px;border-radius:var(--r-sm);
+      background:var(--s2);border:1px solid var(--b1);
+      font-size:.8125rem;font-weight:600;color:var(--t2);transition:all .15s;
+    }
+    .copy-btn:hover{background:var(--teal-d);border-color:var(--teal-m);color:var(--teal)}
+
+    /* Error */
+    .error-card{
+      background:var(--red-d);border:1.5px solid rgba(239,68,68,.2);
+      border-radius:var(--r-xl);padding:44px 32px;text-align:center;
+      animation:slideUp .4s cubic-bezier(.16,1,.3,1) both;
+    }
+    .err-ico{font-size:2.5rem;margin-bottom:14px}
+    .err-ttl{font-size:1.0625rem;font-weight:700;color:#FF8080;margin-bottom:8px}
+    .err-msg{font-size:.875rem;color:var(--t2);line-height:1.6}
+
+    /* ── MAP CARD ───────────────────────────────────────── */
+    .map-card{
+      background:var(--s1);border-radius:var(--r-xl);
+      box-shadow:var(--card-shadow);overflow:hidden;
+      animation:slideUp .45s cubic-bezier(.16,1,.3,1) .08s both;
+    }
+    .map-card-head{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:14px 18px;border-bottom:1px solid var(--b0);
+    }
+    .map-card-title{
+      display:flex;align-items:center;gap:7px;
+      font-size:.8125rem;font-weight:700;color:var(--t2);letter-spacing:-.01em;
+    }
+    .map-attribution-note{font-size:.7rem;color:var(--t3)}
+    #leaflet-map{
+      width:100%;height:240px;
+      filter:grayscale(.15) brightness(.9) contrast(1.05);
+    }
+    /* Leaflet dark override */
+    .leaflet-tile{filter:invert(1) hue-rotate(180deg) saturate(0.8) brightness(0.85)}
+    .leaflet-container{background:#111315}
+    .leaflet-control-zoom a{background:var(--s2)!important;color:var(--t2)!important;border-color:var(--b1)!important}
+    .leaflet-control-zoom a:hover{background:var(--s3)!important;color:var(--t1)!important}
+    .leaflet-control-attribution{background:rgba(17,19,21,.85)!important;color:var(--t3)!important;font-size:.65rem!important}
+    .leaflet-control-attribution a{color:var(--teal)!important}
+
+    /* custom pin */
+    .map-pin{
+      width:32px;height:40px;cursor:pointer;
+      filter:drop-shadow(0 4px 8px rgba(0,196,140,.5));
+    }
+
+    /* ── IBGE CARD ──────────────────────────────────────── */
+    .ibge-card{
+      background:var(--s1);border-radius:var(--r-xl);
+      box-shadow:var(--card-shadow);overflow:hidden;
+      animation:slideUp .45s cubic-bezier(.16,1,.3,1) .16s both;
+    }
+    .ibge-head{
+      padding:16px 20px;border-bottom:1px solid var(--b0);
+      background:linear-gradient(135deg,rgba(59,130,246,.08) 0%,rgba(0,196,140,.04) 100%);
+      display:flex;align-items:center;gap:10px;
+    }
+    .ibge-badge{
+      padding:3px 9px;border-radius:var(--r-pill);
+      background:var(--blue-d);border:1px solid rgba(59,130,246,.25);
+      font-size:.6875rem;font-weight:700;color:#93C5FD;letter-spacing:.06em;
+    }
+    .ibge-title{font-size:.9375rem;font-weight:700;letter-spacing:-.01em}
+    .ibge-body{
+      padding:16px 20px;
+      display:grid;grid-template-columns:1fr 1fr;
+      gap:12px;
+    }
+    .ibge-stat{
+      background:var(--s2);border:1px solid var(--b0);
+      border-radius:var(--r-md);padding:12px 14px;
+    }
+    .ibge-stat-lbl{font-size:.6875rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);margin-bottom:4px}
+    .ibge-stat-val{font-size:.9375rem;font-weight:600;color:var(--t1);line-height:1.3}
+    .ibge-region-badge{
+      grid-column:1/-1;
+      display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+    }
+    .region-chip{
+      padding:5px 12px;border-radius:var(--r-pill);font-size:.8125rem;font-weight:600;
+      border:1px solid;
+    }
+
+    /* ── HISTORY ────────────────────────────────────────── */
+    .hist-panel{display:flex;flex-direction:column;gap:10px}
+    .hist-hdr{display:flex;align-items:center;justify-content:space-between}
+    .hist-title{
+      display:flex;align-items:center;gap:7px;
+      font-size:.75rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);
+    }
+    .hist-badge{
+      padding:2px 8px;border-radius:var(--r-pill);
+      background:var(--s2);border:1px solid var(--b0);
+      font-size:.6875rem;font-weight:700;color:var(--t3);
+    }
+    .hist-list{
+      display:flex;flex-direction:column;gap:6px;
+      max-height:calc(100vh - 320px);min-height:200px;overflow-y:auto;
+      padding-right:2px;
+    }
+    .hist-list::-webkit-scrollbar{width:3px}
+    .hist-list::-webkit-scrollbar-track{background:transparent}
+    .hist-list::-webkit-scrollbar-thumb{background:var(--b1);border-radius:99px}
+
+    .hist-empty{
+      background:var(--s1);border:1.5px dashed var(--b0);
+      border-radius:var(--r-md);padding:36px 20px;text-align:center;
+    }
+    .hist-empty-ico{font-size:1.75rem;margin-bottom:8px}
+    .hist-empty p{font-size:.8125rem;color:var(--t3);line-height:1.6}
+
+    .hist-item{
+      display:flex;align-items:center;gap:10px;
+      padding:11px 13px;
+      background:var(--s1);border:1px solid var(--b0);border-radius:var(--r-md);
+      cursor:pointer;animation:fadeIn .3s ease both;
+      transition:background .15s,border-color .15s,transform .15s;
+    }
+    .hist-item:hover{background:var(--s2);border-color:var(--b1);transform:translateX(3px)}
+    .hist-dot{
+      width:30px;height:30px;border-radius:9px;flex-shrink:0;
+      background:var(--teal-d);border:1px solid rgba(0,196,140,.15);
+      display:flex;align-items:center;justify-content:center;font-size:.875rem;
+    }
+    .hist-info{flex:1;min-width:0}
+    .hist-cep{font-family:'JetBrains Mono',monospace;font-size:.875rem;font-weight:700;color:var(--t1)}
+    .hist-loc{font-size:.75rem;color:var(--t3);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .hist-del{
+      width:28px;height:28px;border-radius:var(--r-xs);
+      display:flex;align-items:center;justify-content:center;
+      color:var(--t3);opacity:0;flex-shrink:0;
+      transition:opacity .15s,background .15s,color .15s;
+    }
+    .hist-item:hover .hist-del{opacity:1}
+    .hist-del:hover{background:rgba(239,68,68,.1);color:var(--red)}
+
+    /* ── FOOTER ─────────────────────────────────────────── */
+    .footer{border-top:1px solid var(--b0);padding:22px 0 28px}
+    .footer-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+    .footer-copy{font-size:.8125rem;color:var(--t3)}
+    .footer-copy a{color:var(--teal)}
+    .footer-nav{display:flex;gap:4px}
+    .footer-nav a{
+      padding:5px 10px;border-radius:var(--r-sm);
+      font-size:.8125rem;color:var(--t3);transition:color .15s,background .15s;
+    }
+    .footer-nav a:hover{color:var(--t1);background:var(--s2)}
+
+    /* ── TOAST ──────────────────────────────────────────── */
+    .toast{
+      position:fixed;bottom:28px;left:50%;
+      transform:translateX(-50%) translateY(80px);
+      background:var(--s2);border:1px solid var(--b1);
+      border-radius:var(--r-pill);padding:11px 20px;
+      font-size:.875rem;font-weight:600;color:var(--t1);
+      box-shadow:0 8px 32px rgba(0,0,0,.5);
+      transition:transform .35s cubic-bezier(.16,1,.3,1);
+      z-index:999;white-space:nowrap;
+    }
+    .toast.on{transform:translateX(-50%) translateY(0)}
+
+    /* ── ANIMATIONS ─────────────────────────────────────── */
+    @keyframes fadeDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes fadeUp  {from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)}}
+    @keyframes slideUp {from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)}}
+    @keyframes fadeIn  {from{opacity:0}                             to{opacity:1}}
+    @keyframes rotate  {to{transform:rotate(360deg)}}
+    @keyframes breathe {0%,100%{transform:scale(1);opacity:1}50%{transform:scale(.7);opacity:.5}}
+    @keyframes shake   {0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+
+    /* ── RESPONSIVE ─────────────────────────────────────── */
+    @media(max-width:520px){
+      .hero{padding:48px 0 40px}
+      .search-box{padding:6px 6px 6px 16px}
+      .search-input{font-size:1.0625rem}
+      .search-btn{padding:12px 20px;font-size:.875rem}
+      .cep-val{font-size:1.75rem}
+      .card-head,.card-body,.card-foot{padding-left:18px;padding-right:18px}
+      .frow-2{grid-template-columns:1fr}
+      .ibge-body{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="orb-teal"></div>
+<div class="orb-gold"></div>
+
+<div class="wrap">
+
+  <!-- HEADER -->
+  <header class="hdr">
+    <div class="brand">
+      <div class="brand-ico">📍</div>
+      <span class="brand-name">CEP Finder</span>
+    </div>
+    <nav class="hdr-links">
+      <a class="hdr-link" href="/swagger-ui.html" target="_blank">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        API Docs
+      </a>
+      <a class="hdr-link" href="/v3/api-docs" target="_blank">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        OpenAPI
+      </a>
+    </nav>
+  </header>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="pill">
+      <span class="pill-dot"></span>
+      ViaCEP + IBGE · Dois serviços públicos do governo
+    </div>
+    <h1 class="hero-h1">Encontre qualquer<br><em>endereço do Brasil</em></h1>
+    <p class="hero-sub">
+      CEP → endereço completo + mapa interativo + dados oficiais do IBGE.<br>
+      Histórico persistido no banco de dados.
+    </p>
+
+    <div class="search-wrap">
+      <div class="search-box" id="searchBox">
+        <div class="search-ico">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        </div>
+        <input id="cepInput" class="search-input"
+          type="text" inputmode="numeric"
+          placeholder="00000-000" maxlength="9"
+          autocomplete="off" spellcheck="false"
+          aria-label="Digite o CEP"/>
+        <button class="search-btn" id="searchBtn" onclick="buscarCep()">
+          <div class="spin" id="spin"></div>
+          <span id="btnLbl">Buscar</span>
+        </button>
+      </div>
+      <p class="search-hint">
+        Tente <kbd>01310-100</kbd> · <kbd>22070-011</kbd> · <kbd>70040-010</kbd>
+        &nbsp;·&nbsp; <kbd>Enter</kbd> para buscar
+      </p>
+    </div>
+  </section>
+
+  <!-- MAIN GRID -->
+  <main class="grid">
+
+    <!-- Left: result + map + ibge -->
+    <div class="col-result" id="colResult">
+      <div class="empty" id="emptyState">
+        <div class="empty-ico">🗺️</div>
+        <h3>Nenhuma busca ainda</h3>
+        <p>Digite um CEP e pressione <strong>Buscar</strong> para ver o endereço completo, localização no mapa e dados do IBGE.</p>
+      </div>
+    </div>
+
+    <!-- Right: history -->
+    <aside class="hist-panel">
+      <div class="hist-hdr">
+        <span class="hist-title">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>
+          Histórico
+          <span class="hist-badge" id="histBadge">0</span>
+        </span>
+      </div>
+      <div class="hist-list" id="histList">
+        <div class="hist-empty" id="histEmpty">
+          <div class="hist-empty-ico">🕐</div>
+          <p>Suas buscas aparecerão aqui.<br>O histórico é salvo no banco.</p>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="footer-row">
+      <p class="footer-copy">
+        Dados: <a href="https://viacep.com.br" target="_blank">ViaCEP</a> &amp;
+        <a href="https://servicodados.ibge.gov.br" target="_blank">IBGE</a> ·
+        Mapa: <a href="https://www.openstreetmap.org" target="_blank">OpenStreetMap</a> ·
+        BootCamp Intermediário 2025
+      </p>
+      <nav class="footer-nav">
+        <a href="/swagger-ui.html" target="_blank">Swagger UI</a>
+        <a href="/v3/api-docs"     target="_blank">OpenAPI JSON</a>
+      </nav>
+    </div>
+  </footer>
+</div>
+
+<div class="toast" id="toast" role="alert" aria-live="polite"></div>
+
+<script>
+/* ================================================================
+   STATE & MAP
+================================================================ */
+let busy = false;
+let leafletMap = null;
+let leafletMarker = null;
+
+/* ================================================================
+   CEP MASK
+================================================================ */
+const cepInput = document.getElementById('cepInput');
+
+cepInput.addEventListener('input', e => {
+  let v = e.target.value.replace(/\D/g,'').slice(0,8);
+  e.target.value = v.length > 5 ? `${v.slice(0,5)}-${v.slice(5)}` : v;
+});
+cepInput.addEventListener('keydown', e => { if(e.key==='Enter') buscarCep(); });
+
+/* ================================================================
+   SEARCH
+================================================================ */
+async function buscarCep() {
+  if(busy) return;
+  const digits = cepInput.value.replace(/\D/g,'');
+  if(digits.length !== 8){ shakeBox(); showError('CEP inválido','O CEP deve ter 8 dígitos. Formato: 00000-000'); return; }
+
+  setLoading(true);
+  try {
+    const res  = await fetch(`/api/cep/${digits}`);
+    if(!res.ok){
+      const b = await res.json().catch(()=>({}));
+      throw {t: res.status===404?'CEP não encontrado':'Erro na consulta',
+             m: b.detail||(res.status===404?'Este CEP não existe na base dos Correios.':'Erro '+res.status)};
+    }
+    const data = await res.json();
+    renderResult(data);
+    loadHistorico();
+    // Side requests: map geocoding + IBGE (non-blocking)
+    geocodeAndShowMap(data);
+    if(data.ibge) loadIbge(data.ibge);
+  } catch(e){
+    if(e.name==='TypeError') showError('Sem conexão','Não foi possível conectar ao servidor.');
+    else showError(e.t||'Erro', e.m||e.message||'Tente novamente.');
+  } finally { setLoading(false); }
+}
+
+function setLoading(v){
+  busy = v;
+  document.getElementById('searchBtn').disabled = v;
+  document.getElementById('spin').classList.toggle('on',v);
+  document.getElementById('btnLbl').textContent = v ? 'Buscando…' : 'Buscar';
+}
+
+function shakeBox(){
+  const b = document.getElementById('searchBox');
+  b.style.animation='none'; b.offsetHeight;
+  b.style.animation='shake .35s ease';
+}
+
+/* ================================================================
+   RESULT CARD
+================================================================ */
+function renderResult(d) {
+  const col = document.getElementById('colResult');
+  const ts  = d.buscadoEm
+    ? new Date(d.buscadoEm).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})
+    : '–';
+  const log = [d.logradouro, d.complemento].filter(Boolean).join(' · ');
+
+  // Keep only the result card, remove old map/ibge
+  col.innerHTML = `
+    <div class="card" id="resultCard">
+      <div class="card-head">
+        <div>
+          <div class="cep-lbl">CEP Encontrado</div>
+          <div class="cep-val">${fmt(d.cep)}</div>
+        </div>
+        <div class="uf-chip">${d.uf||'?'}</div>
+      </div>
+      <div class="card-body">
+        ${row('📍','Logradouro', log || d.logradouro)}
+        ${row('🏘️','Bairro',    d.bairro)}
+        ${row('🏙️','Cidade',    d.localidade)}
+        <div class="frow-2">
+          ${row('🗺️','Estado',  d.uf)}
+          ${row('📞','DDD',     d.ddd ? `(${d.ddd})` : null)}
+        </div>
+        ${d.ibge ? row('🏛️','Código IBGE', d.ibge) : ''}
+      </div>
+      <div class="card-foot">
+        <span class="ts">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>
+          ${ts}
+        </span>
+        <button class="copy-btn" onclick='copyAddr(${JSON.stringify(d)})'>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copiar endereço
+        </button>
+      </div>
+    </div>
+    <div id="mapSlot"></div>
+    <div id="ibgeSlot"></div>`;
+}
+
+function row(ico, lbl, val){
+  const nil = !val;
+  return `<div class="frow">
+    <div class="frow-ico">${ico}</div>
+    <div class="frow-field">
+      <div class="flabel">${lbl}</div>
+      <div class="fval${nil?' nil':''}">${nil?'Não informado':val}</div>
+    </div>
+  </div>`;
+}
+
+function showError(t, m){
+  document.getElementById('colResult').innerHTML =
+    `<div class="error-card"><div class="err-ico">🚫</div><div class="err-ttl">${t}</div><p class="err-msg">${m}</p></div>`;
+}
+
+/* ================================================================
+   LEAFLET MAP
+================================================================ */
+async function geocodeAndShowMap(data) {
+  const slot = document.getElementById('mapSlot');
+  if(!slot) return;
+
+  // Inject map card placeholder immediately
+  slot.innerHTML = `
+    <div class="map-card">
+      <div class="map-card-head">
+        <span class="map-card-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/></svg>
+          Localização no Mapa
+        </span>
+        <span class="map-attribution-note">© OpenStreetMap</span>
+      </div>
+      <div id="leaflet-map"></div>
+    </div>`;
+
+  // Init or reset Leaflet
+  if(leafletMap){ leafletMap.remove(); leafletMap = null; leafletMarker = null; }
+
+  leafletMap = L.map('leaflet-map', { zoomControl:true, attributionControl:true });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom:19
+  }).addTo(leafletMap);
+
+  // Geocode via Nominatim
+  const q = [data.logradouro, data.bairro, data.localidade, data.uf, 'Brasil'].filter(Boolean).join(', ');
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`, {
+      headers:{'Accept-Language':'pt-BR','User-Agent':'cep-finder-bootcamp/1.0'}
+    });
+    const results = await r.json();
+    if(results.length){
+      const {lat,lon} = results[0];
+      leafletMap.setView([lat,lon], 16);
+
+      // Custom teal pin SVG
+      const pinIcon = L.divIcon({
+        className:'',
+        html:`<svg class="map-pin" viewBox="0 0 32 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M16 0C9.373 0 4 5.373 4 12c0 9 12 28 12 28S28 21 28 12C28 5.373 22.627 0 16 0z" fill="#00C48C"/>
+          <circle cx="16" cy="12" r="5" fill="white"/>
+        </svg>`,
+        iconSize:[32,40], iconAnchor:[16,40], popupAnchor:[0,-44]
+      });
+      leafletMarker = L.marker([lat,lon],{icon:pinIcon}).addTo(leafletMap);
+      const addr = [data.logradouro, data.bairro, data.localidade+' - '+data.uf].filter(Boolean).join('<br>');
+      leafletMarker.bindPopup(`
+        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;line-height:1.5">
+          <strong style="color:#00C48C;font-family:'JetBrains Mono',monospace">${fmt(data.cep)}</strong><br>
+          ${addr}
+        </div>`).openPopup();
+    } else {
+      // fallback: center on Brazil
+      leafletMap.setView([-14.235, -51.9253], 4);
+    }
+  } catch {
+    leafletMap.setView([-14.235, -51.9253], 4);
+  }
+}
+
+/* ================================================================
+   IBGE CARD
+================================================================ */
+async function loadIbge(ibgeCodigo) {
+  const slot = document.getElementById('ibgeSlot');
+  if(!slot) return;
+
+  try {
+    const res  = await fetch(`/api/cidade/${ibgeCodigo}`);
+    if(!res.ok) return;
+    const c = await res.json();
+
+    const regionColors = {
+      'N':  {bg:'rgba(16,185,129,.10)', border:'rgba(16,185,129,.25)', text:'#34D399'},
+      'NE': {bg:'rgba(245,158,11,.10)', border:'rgba(245,158,11,.25)', text:'#FCD34D'},
+      'CO': {bg:'rgba(139,92,246,.10)', border:'rgba(139,92,246,.25)', text:'#C4B5FD'},
+      'SE': {bg:'rgba(59,130,246,.10)', border:'rgba(59,130,246,.25)', text:'#93C5FD'},
+      'S':  {bg:'rgba(239,68,68,.10)',  border:'rgba(239,68,68,.25)',  text:'#FCA5A5'},
+    };
+    const rc = regionColors[c.siglaRegiao] || regionColors['SE'];
+
+    slot.innerHTML = `
+      <div class="ibge-card">
+        <div class="ibge-head">
+          <span class="ibge-badge">IBGE</span>
+          <span class="ibge-title">${c.nome}</span>
+        </div>
+        <div class="ibge-body">
+          <div class="ibge-stat">
+            <div class="ibge-stat-lbl">Código IBGE</div>
+            <div class="ibge-stat-val" style="font-family:'JetBrains Mono',monospace;color:var(--teal)">${c.id}</div>
+          </div>
+          <div class="ibge-stat">
+            <div class="ibge-stat-lbl">Estado (UF)</div>
+            <div class="ibge-stat-val">${c.nomeUf||c.uf}</div>
+          </div>
+          ${c.mesorregiao ? `
+          <div class="ibge-stat">
+            <div class="ibge-stat-lbl">Mesorregião</div>
+            <div class="ibge-stat-val">${c.mesorregiao}</div>
+          </div>` : ''}
+          ${c.microrregiao ? `
+          <div class="ibge-stat">
+            <div class="ibge-stat-lbl">Microrregião</div>
+            <div class="ibge-stat-val">${c.microrregiao}</div>
+          </div>` : ''}
+          <div class="ibge-region-badge">
+            <div class="region-chip" style="background:${rc.bg};border-color:${rc.border};color:${rc.text}">
+              🌍 Região ${c.regiao||'–'}
+            </div>
+            <div class="region-chip" style="background:var(--blue-d);border-color:rgba(59,130,246,.25);color:#93C5FD">
+              ${c.uf} · ${c.nome}
+            </div>
+          </div>
+        </div>
+      </div>`;
+  } catch { /* IBGE falhou, não mostra nada */ }
+}
+
+/* ================================================================
+   HISTORY
+================================================================ */
+async function loadHistorico() {
+  try {
+    const res  = await fetch('/api/historico');
+    const list = await res.json();
+    renderHistorico(Array.isArray(list) ? list : []);
+  } catch { /* silent */ }
+}
+
+function renderHistorico(items){
+  const container = document.getElementById('histList');
+  const badge     = document.getElementById('histBadge');
+  badge.textContent = items.length;
+  if(!items.length){
+    container.innerHTML = '';
+    container.appendChild(mkHistEmpty());
+    return;
+  }
+  container.innerHTML = items.slice(0,20).map((it,i)=>`
+    <div class="hist-item" style="animation-delay:${i*25}ms" onclick="repeatSearch('${it.cep.replace(/\D/g,'')}')">
+      <div class="hist-dot">📍</div>
+      <div class="hist-info">
+        <div class="hist-cep">${fmt(it.cep)}</div>
+        <div class="hist-loc">${it.localidade||''}${it.localidade&&it.uf?' — ':''}${it.uf||'Salvo'}</div>
+      </div>
+      <button class="hist-del" onclick="event.stopPropagation();del(${it.id})" title="Remover">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 6h18M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/>
+        </svg>
+      </button>
+    </div>`).join('');
+}
+
+function mkHistEmpty(){
+  const d = document.createElement('div');
+  d.className='hist-empty';
+  d.innerHTML='<div class="hist-empty-ico">🕐</div><p>Suas buscas aparecerão aqui.<br>O histórico é salvo no banco.</p>';
+  return d;
+}
+
+async function del(id){
+  try{
+    await fetch(`/api/historico/${id}`,{method:'DELETE'});
+    loadHistorico();
+  } catch { toast('Erro ao remover'); }
+}
+
+function repeatSearch(cep){
+  cepInput.value = fmt(cep);
+  buscarCep();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+/* ================================================================
+   UTILITIES
+================================================================ */
+function fmt(cep){
+  const c = (cep||'').replace(/\D/g,'');
+  return c.length===8 ? `${c.slice(0,5)}-${c.slice(5)}` : cep;
+}
+
+function copyAddr(d){
+  const text = [d.logradouro,d.complemento,d.bairro,d.localidade,d.uf,fmt(d.cep)].filter(Boolean).join(', ');
+  navigator.clipboard.writeText(text).then(()=>toast('✓ Endereço copiado!')).catch(()=>toast('Copie manualmente.'));
+}
+
+let toastT;
+function toast(msg){
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('on');
+  clearTimeout(toastT); toastT = setTimeout(()=>el.classList.remove('on'),2600);
+}
+
+/* ================================================================
+   URL SHARING  ?cep=01310-100
+================================================================ */
+(function(){
+  const p = new URLSearchParams(location.search).get('cep');
+  if(p){ cepInput.value = fmt(p.replace(/\D/g,'')); buscarCep(); }
+})();
+
+/* ================================================================
+   INIT
+================================================================ */
+loadHistorico();
+cepInput.focus();
+</script>
+</body>
+</html>
