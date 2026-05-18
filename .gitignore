@@ -1,0 +1,16 @@
+target/
+*.class
+*.jar
+*.war
+*.ear
+.mvn/
+!.mvn/wrapper/
+!.mvn/jvm.config
+*.iml
+.idea/
+.vscode/
+.DS_Store
+*.env
+.env
+application-local.properties
+.claude/
