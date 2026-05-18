@@ -6,9 +6,9 @@
 
 ## 🌐 Aplicação publicada
 
-**Deploy:** [https://SEU-APP.onrender.com](https://SEU-APP.onrender.com)
+**Deploy:**[ [[https://SEU-APP.onrender.com](https://SEU-APP.onrender.com)](https://bootcamp-2-intermediario.onrender.com)](https://bootcamp-2-intermediario.onrender.com)
 
-**Swagger UI:** [https://SEU-APP.onrender.com/swagger-ui.html](https://SEU-APP.onrender.com/swagger-ui.html)
+
 
 ---
 
