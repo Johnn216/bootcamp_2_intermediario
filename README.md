@@ -6,8 +6,7 @@
 
 ## 🌐 Aplicação publicada
 
-**Deploy:**[ [[https://SEU-APP.onrender.com](https://SEU-APP.onrender.com)](https://bootcamp-2-intermediario.onrender.com)](https://bootcamp-2-intermediario.onrender.com)
-
+**Deploy:** https://bootcamp-2-intermediario.onrender.com
 
 
 ---
